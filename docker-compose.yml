@@ -1,6 +1,26 @@
 version: '3.8'
 
 services:
+  payment-db:
+    image: mysql:8.0
+    container_name: payment-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: bookstore_payment
+      MYSQL_USER: bookstore
+      MYSQL_PASSWORD: bookstore
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - payment_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks:
+      - bookstore-network
+
   payment-service:
     build: 
       context: .
@@ -11,12 +31,21 @@ services:
     volumes:
       - .:/build
       - ~/.m2:/root/.m2
-    command: mvn spring-boot:run -Dspring-boot.run.profiles=docker
+    command: mvn spring-boot:run -Dspring-boot.run.profiles=dev
+    env_file:
+      - .env
     environment:
-      SPRING_PROFILES_ACTIVE: docker
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:mysql://payment-db:3306/bookstore_payment?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     networks:
       - bookstore-network
+    depends_on:
+      payment-db:
+        condition: service_healthy
 
 networks:
   bookstore-network:
-    external: true
+    # external: true
+
+volumes:
+  payment_mysql_data:
