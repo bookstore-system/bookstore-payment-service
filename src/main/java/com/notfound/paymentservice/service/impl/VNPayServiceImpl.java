@@ -14,6 +14,7 @@ import com.notfound.paymentservice.repository.PaymentRepository;
 import com.notfound.paymentservice.util.VNPayUtil;
 import com.notfound.paymentservice.messaging.PaymentMessageProducer;
 import com.notfound.paymentservice.messaging.PaymentCompletedEvent;
+import com.notfound.paymentservice.service.VNPayService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +27,7 @@ import java.security.SecureRandom;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class VNPayServiceImpl {
+public class VNPayServiceImpl implements VNPayService {
 
     private final VNPayConfig vnPayConfig;
     private final VNPayUtil vnPayUtil;
@@ -45,6 +46,7 @@ public class VNPayServiceImpl {
         return sb.toString();
     }
 
+    @Override
     @Transactional
     public CreatePaymentResponse createVNPayPaymentUrl(PaymentRequest request, HttpServletRequest httpServletRequest) {
         String transactionId = generateTransactionId();
@@ -70,6 +72,7 @@ public class VNPayServiceImpl {
                 .build();
     }
 
+    @Override
     @Transactional
     public PaymentResponse handleVNPayReturn(VNPayCallbackRequest vnpParamsRequest) {
         if (!vnPayUtil.verifyReturnDataSignature(vnpParamsRequest)) {
@@ -96,6 +99,7 @@ public class VNPayServiceImpl {
         return mapToResponse(payment);
     }
 
+    @Override
     public String getRedirectUrlByTransactionId(String transactionId) {
         return paymentRepository.findByTransactionId(transactionId)
                 .map(Payment::getRedirectUrl)

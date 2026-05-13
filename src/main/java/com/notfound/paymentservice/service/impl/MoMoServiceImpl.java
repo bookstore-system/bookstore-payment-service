@@ -1,6 +1,6 @@
 package com.notfound.paymentservice.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.notfound.paymentservice.config.MoMoConfig;
 import com.notfound.paymentservice.exception.AppException;
 import com.notfound.paymentservice.exception.ErrorCode;
@@ -15,6 +15,7 @@ import com.notfound.paymentservice.repository.PaymentRepository;
 import com.notfound.paymentservice.util.MoMoUtil;
 import com.notfound.paymentservice.messaging.PaymentMessageProducer;
 import com.notfound.paymentservice.messaging.PaymentCompletedEvent;
+import com.notfound.paymentservice.service.MoMoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
@@ -32,7 +33,7 @@ import java.util.Map;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class MoMoServiceImpl {
+public class MoMoServiceImpl implements MoMoService {
 
     private final MoMoConfig moMoConfig;
     private final MoMoUtil moMoUtil;
