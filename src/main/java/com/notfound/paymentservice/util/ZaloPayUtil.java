@@ -1,6 +1,6 @@
 package com.notfound.paymentservice.util;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.notfound.paymentservice.config.ZaloPayConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
