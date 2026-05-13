@@ -8,9 +8,9 @@ import com.notfound.paymentservice.model.dto.response.ApiResponse;
 import com.notfound.paymentservice.model.dto.response.CreatePaymentResponse;
 import com.notfound.paymentservice.model.dto.response.PaymentResponse;
 import com.notfound.paymentservice.model.dto.response.ZaloPayCallBackResponseDTO;
-import com.notfound.paymentservice.service.impl.MoMoServiceImpl;
-import com.notfound.paymentservice.service.impl.VNPayServiceImpl;
-import com.notfound.paymentservice.service.impl.ZaloPayServiceImpl;
+import com.notfound.paymentservice.service.MoMoService;
+import com.notfound.paymentservice.service.VNPayService;
+import com.notfound.paymentservice.service.ZaloPayService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -22,13 +22,13 @@ import java.io.IOException;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/payment")
+@RequestMapping("/api/v1/payment")
 @RequiredArgsConstructor
 public class PaymentController {
 
-    private final VNPayServiceImpl vnPayService;
-    private final ZaloPayServiceImpl zaloPayService;
-    private final MoMoServiceImpl moMoService;
+    private final VNPayService vnPayService;
+    private final ZaloPayService zaloPayService;
+    private final MoMoService moMoService;
 
     @Value("${frontend.url}")
     private String frontendUrl;
