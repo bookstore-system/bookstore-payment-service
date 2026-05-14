@@ -1,20 +1,15 @@
 package com.notfound.paymentservice.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AccessLevel;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @Getter
-@RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class ZaloPayConfig {
-
-    private final ObjectMapper objectMapper;
 
     @Value("${payment.zaloPay.appId}")
     String appId;

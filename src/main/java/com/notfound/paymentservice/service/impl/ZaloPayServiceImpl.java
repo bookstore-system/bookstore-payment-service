@@ -1,6 +1,6 @@
 package com.notfound.paymentservice.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.notfound.paymentservice.config.ZaloPayConfig;
 import com.notfound.paymentservice.exception.AppException;
 import com.notfound.paymentservice.exception.ErrorCode;
@@ -14,6 +14,7 @@ import com.notfound.paymentservice.repository.PaymentRepository;
 import com.notfound.paymentservice.util.HMACUtil;
 import com.notfound.paymentservice.messaging.PaymentMessageProducer;
 import com.notfound.paymentservice.messaging.PaymentCompletedEvent;
+import com.notfound.paymentservice.service.ZaloPayService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.NameValuePair;
@@ -35,7 +36,7 @@ import java.util.*;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class ZaloPayServiceImpl {
+public class ZaloPayServiceImpl implements ZaloPayService {
 
     private final ZaloPayConfig zaloPayConfig;
     private final PaymentRepository paymentRepository;
@@ -116,6 +117,13 @@ public class ZaloPayServiceImpl {
             log.error("Failed to create ZaloPay transaction", e);
             throw new AppException(ErrorCode.PAYMENT_FAILED);
         }
+    }
+
+    @Override
+    public String getRedirectUrlByTransactionId(String transactionId) {
+        return paymentRepository.findByTransactionId(transactionId)
+                .map(Payment::getRedirectUrl)
+                .orElse(null);
     }
 
     @Transactional
