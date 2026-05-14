@@ -8,4 +8,5 @@ import com.notfound.paymentservice.model.dto.response.PaymentResponse;
 public interface MoMoService {
     CreatePaymentResponse createMoMoPayment(PaymentRequest request);
     PaymentResponse handleMoMoCallback(MoMoCallbackRequest callbackRequest);
+    String getRedirectUrlByTransactionId(String transactionId);
 }

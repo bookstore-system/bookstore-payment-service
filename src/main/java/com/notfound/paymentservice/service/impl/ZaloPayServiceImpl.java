@@ -119,6 +119,13 @@ public class ZaloPayServiceImpl implements ZaloPayService {
         }
     }
 
+    @Override
+    public String getRedirectUrlByTransactionId(String transactionId) {
+        return paymentRepository.findByTransactionId(transactionId)
+                .map(Payment::getRedirectUrl)
+                .orElse(null);
+    }
+
     @Transactional
     public boolean handleCallback(ZaloPayCallbackRequest cbData) {
         try {

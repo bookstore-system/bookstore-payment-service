@@ -7,4 +7,5 @@ import com.notfound.paymentservice.model.dto.response.CreatePaymentResponse;
 public interface ZaloPayService {
     CreatePaymentResponse createOrderTransaction(PaymentRequest request);
     boolean handleCallback(ZaloPayCallbackRequest cbData);
+    String getRedirectUrlByTransactionId(String transactionId);
 }

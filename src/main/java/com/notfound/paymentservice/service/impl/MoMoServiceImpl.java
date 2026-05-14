@@ -159,6 +159,13 @@ public class MoMoServiceImpl implements MoMoService {
         return mapToResponse(payment);
     }
     
+    @Override
+    public String getRedirectUrlByTransactionId(String transactionId) {
+        return paymentRepository.findByTransactionId(transactionId)
+                .map(Payment::getRedirectUrl)
+                .orElse(null);
+    }
+
     private PaymentResponse mapToResponse(Payment payment) {
         return PaymentResponse.builder()
                 .paymentId(payment.getPaymentID())

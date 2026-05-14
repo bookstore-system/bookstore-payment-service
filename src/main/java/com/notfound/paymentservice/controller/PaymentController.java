@@ -18,6 +18,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 import java.io.IOException;
 
 @Slf4j
@@ -57,12 +60,17 @@ public class PaymentController {
         String redirectUrl = vnPayService.getRedirectUrlByTransactionId(vnpParams.getVnp_TxnRef());
 
         if (redirectUrl == null || redirectUrl.isEmpty()) {
-            redirectUrl = frontendUrl + "/payment-result";
+            redirectUrl = frontendUrl;
         }
 
-        String finalRedirectUrl = redirectUrl + "?status=" + paymentResponse.getStatus().name()
+        String finalRedirectUrl = redirectUrl
+                + "?resultCode=" + vnpParams.getVnp_ResponseCode()
+                + "&message=" + URLEncoder.encode(
+                    vnpParams.isSuccess() ? "Thanh toán thành công" : "Thanh toán thất bại",
+                    StandardCharsets.UTF_8)
                 + "&orderId=" + paymentResponse.getOrderId()
-                + "&amount=" + paymentResponse.getAmount();
+                + "&paymentId=" + paymentResponse.getPaymentId()
+                + "&status=" + paymentResponse.getStatus().name();
 
         response.sendRedirect(finalRedirectUrl);
     }
@@ -103,8 +111,30 @@ public class PaymentController {
             @RequestParam(required = false) Integer status,
             HttpServletResponse response
     ) throws IOException {
-        String baseRedirectUrl = frontendUrl + "/payment-result";
-        String finalRedirectUrl = baseRedirectUrl + "?apptransid=" + apptransid + "&status=" + (status != null && status == 1 ? "COMPLETED" : "FAILED");
+        int resultCode = (status != null && status == 1) ? 0 : 1;
+        String message = (resultCode == 0) ? "Thanh toán thành công" : "Thanh toán thất bại";
+        String orderId = "";
+        String paymentId = "";
+        String paymentStatus = (resultCode == 0) ? "COMPLETED" : "FAILED";
+
+        String redirectUrl = frontendUrl;
+        if (apptransid != null && !apptransid.isEmpty()) {
+            try {
+                String dbRedirect = zaloPayService.getRedirectUrlByTransactionId(apptransid);
+                if (dbRedirect != null && !dbRedirect.isEmpty()) {
+                    redirectUrl = dbRedirect;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        String finalRedirectUrl = redirectUrl
+                + "?resultCode=" + resultCode
+                + "&message=" + URLEncoder.encode(message, StandardCharsets.UTF_8)
+                + "&orderId=" + orderId
+                + "&paymentId=" + paymentId
+                + "&status=" + paymentStatus;
+
         response.sendRedirect(finalRedirectUrl);
     }
 
@@ -136,13 +166,59 @@ public class PaymentController {
 
     @GetMapping("/momo/return")
     public void handleMoMoReturn(
+            @RequestParam(required = false) String partnerCode,
             @RequestParam(required = false) String orderId,
+            @RequestParam(required = false) String requestId,
+            @RequestParam(required = false) Long amount,
+            @RequestParam(required = false) String orderInfo,
+            @RequestParam(required = false) String orderType,
+            @RequestParam(required = false) Long transId,
             @RequestParam(required = false) Integer resultCode,
+            @RequestParam(required = false) String message,
+            @RequestParam(required = false) String payType,
+            @RequestParam(required = false) Long responseTime,
+            @RequestParam(required = false) String extraData,
+            @RequestParam(required = false) String signature,
             HttpServletResponse response
     ) throws IOException {
-        String baseRedirectUrl = frontendUrl + "/payment-result";
-        String status = (resultCode != null && resultCode == 0) ? "COMPLETED" : "FAILED";
-        String finalRedirectUrl = baseRedirectUrl + "?orderId=" + orderId + "&status=" + status;
+        MoMoCallbackRequest callback = new MoMoCallbackRequest();
+        callback.setPartnerCode(partnerCode);
+        callback.setOrderId(orderId);
+        callback.setRequestId(requestId);
+        callback.setAmount(amount);
+        callback.setOrderInfo(orderInfo);
+        callback.setOrderType(orderType);
+        callback.setTransId(transId);
+        callback.setResultCode(resultCode);
+        callback.setMessage(message);
+        callback.setPayType(payType);
+        callback.setResponseTime(responseTime);
+        callback.setExtraData(extraData);
+        callback.setSignature(signature);
+
+        PaymentResponse paymentResponse = moMoService.handleMoMoCallback(callback);
+
+        String redirectUrl = moMoService.getRedirectUrlByTransactionId(orderId);
+        if (redirectUrl == null || redirectUrl.isEmpty()) {
+            if (extraData != null && !extraData.isEmpty()) {
+                try {
+                    byte[] decodedBytes = java.util.Base64.getDecoder().decode(extraData);
+                    redirectUrl = new String(decodedBytes);
+                } catch (Exception ignored) {
+                    redirectUrl = frontendUrl;
+                }
+            } else {
+                redirectUrl = frontendUrl;
+            }
+        }
+
+        String finalRedirectUrl = redirectUrl
+                + "?resultCode=" + resultCode
+                + "&message=" + (message != null ? URLEncoder.encode(message, StandardCharsets.UTF_8) : "")
+                + "&orderId=" + paymentResponse.getOrderId()
+                + "&paymentId=" + paymentResponse.getPaymentId()
+                + "&status=" + paymentResponse.getStatus().name();
+
         response.sendRedirect(finalRedirectUrl);
     }
 }
