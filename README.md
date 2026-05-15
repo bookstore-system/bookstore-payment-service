@@ -1,103 +1,208 @@
 # Bookstore Payment Service
 
-## 1. TỔNG QUAN (OVERVIEW)
-- **Tên Service:** `bookstore-payment-service`
-- **Mục đích:** Xử lý các giao dịch thanh toán cho hệ thống qua bên thứ 3 (VNPay, ZaloPay, MoMo). Sau khi thanh toán thành công, gửi sự kiện qua Kafka để các service khác xử lý tiếp (ví dụ `order-service` cập nhật trạng thái đơn hàng).
-- **Port mặc định:** Tuỳ cấu hình trong `application.yml` (hoặc `docker-compose.yml`), mặc định có thể là `8087` hoặc `8080`.
+## 1. Tổng quan
 
-## 2. CONFIG, START VÀ ENVIRONMENT
-**Cách chạy nhanh qua Docker Compose:**
+- **Tên service:** `bookstore-payment-service`
+- **Package:** `com.notfound.paymentservice`
+- **Mục đích:** Xử lý giao dịch thanh toán qua VNPay, ZaloPay, MoMo. Sau khi thanh toán thành công, gửi event `payment.completed` qua **RabbitMQ** để `order-service` cập nhật trạng thái đơn hàng.
+- **Port:** `8085` (host), `8080` (container)
+- **Database:** `bookstore_payment` (MySQL 8.0)
+
+---
+
+## 2. Khởi động
+
+### Docker Compose (khuyến nghị)
+
 ```bash
 cd bookstore-payment-service
 docker compose -f docker-compose.dev.yml up -d
 ```
 
-**Cấu hình application.yaml cần thiết:**
-- **Database:** Connect tới `mysql` (port `3310` dev) / (Database `payment_db`).
-- **Kafka:** Connect tới cluster Kafka (port định tuyến `9092`). Topic sử dụng: `payment.completed`.
-- **Payment Keys:** Bắt buộc cấu hình đầy đủ `payment.vnpay.*`, `payment.momo.*`, `payment.zaloPay.*` gồm các key mã hóa, access key, endpoint gọi API, redirect/callback URL.
+### Local (cần MySQL running)
 
-## 3. MODELS & DTOs
-**Entity `Payment`:** Chứa thông tin lịch sử tạo phiên giao dịch payment độc lập không còn mapping trưc tiếp sang `Order`.
-- `paymentID` (Long, PK)
-- `orderId` (UUID) - ID để map ngược với bảng `Order` ở `order-service`
-- `amount` (Long)
-- `paymentMethod` (String: VNPAY, ZALOPAY, MOMO)
-- `status` (Enum: PENDING, COMPLETED, FAILED, REFUNDED)
-- `transactionId` (String)
-- `redirectUrl` (String)
-
-**DTO `PaymentRequest`:**
-```json
-{
-  "orderId": "UUID",
-  "amount": 150000,
-  "orderInfo": "Thanh toan don hang abc",
-  "bankCode": "NCB",
-  "redirectUrl": "https://fontend.domain/redirect"
-}
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=default
 ```
 
-## 4. DANH SÁCH API CUNG CẤP CỦA PAYMENT SERVICE
-### 4.1. VNPay API
-- **API 4.1.1: Tạo URL Thanh Toán VNPay**
-  - Mục đích: Trả về một URL đến cổng thanh toán VNPay
-  - Method: `POST`
-  - Endpoint: `/api/payment/vnpay/create`
-  - Request Body: `PaymentRequest`
-  - Response (200 OK): `CreatePaymentResponse` chứa `paymentUrl`.
+### Cấu hình bắt buộc (`application.yml`)
 
-- **API 4.1.2: VNPay Return Callback**
-  - Mục đích: VNPay tự động gọi/redirect về sau khi khách hàng dùng thử trên web VNPay thành công/thất bại.
-  - Method: `GET`
-  - Endpoint: `/api/payment/vnpay/callback`
-  - Tham số: `vnp_*` từ VNPay. Thực hiện cập nhật Payment Status và phát `payment.completed` Kafka event (nếu thành công), sau đó redirect về Client Web (FE).
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/bookstore_payment
+    username: bookstore
+    password: bookstore
+  rabbitmq:
+    host: localhost
+    port: 5672
 
-### 4.2. ZaloPay API
-- **API 4.2.1: Tạo phiên giao dịch ZaloPay**
-  - Method: `POST`
-  - Endpoint: `/api/payment/zalopay/create`
-  - Request Body: `PaymentRequest`
-  - Response (200 OK): `CreatePaymentResponse`
+payment:
+  vnPay:
+    url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+    returnUrl: http://localhost:8085/api/v1/payment/vnpay/callback
+    tmnCode: <TMN_CODE>
+    secretKey: <SECRET_KEY>
+    version: "2.1.0"
+    command: pay
+    orderType: other
+  momo:
+    partnerCode: <PARTNER_CODE>
+    accessKey: <ACCESS_KEY>
+    secretKey: <SECRET_KEY>
+    endpoint: https://test-payment.momo.vn/v2/gateway/api/create
+    returnUrl: http://localhost:8085/api/v1/payment/momo/return
+    ipnUrl: http://localhost:8085/api/v1/payment/momo/callback
+  zaloPay:
+    appId: <APP_ID>
+    key1: <KEY1>
+    key2: <KEY2>
+    endpoint: https://sb-openapi.zalopay.vn/v2/create
+    returnUrl: http://localhost:8085/api/v1/payment/zalopay/return
+    callbackUrl: http://localhost:8085/api/v1/payment/zalopay/callback
 
-- **API 4.2.2: ZaloPay Webhook / Callback** (Server - Server)
-  - Method: `POST`
-  - Endpoint: `/api/payment/zalopay/callback`
-  - Request: JSON request theo chuẩn Webhook của ZaloPay chứa `data` và `mac`. Cập nhật Payment Status và Publish `payment.completed` event.
-  - Response: Cấu trúc riêng trả về cho ZaloPay `{"returnCode":1, "returnMessage":"success"}`
-
-- **API 4.2.3: ZaloPay Redirect Return**
-  - Method: `GET`
-  - Endpoint: `/api/payment/zalopay/return`
-  - Redirect về cho giao diện Frontend.
-
-### 4.3. MoMo API
-- Tương tự có `/api/payment/momo/create`, `/momo/callback` (POST server-server) và `/momo/return` (GET để Frontend redirect). (Callback sẽ Publish `payment.completed` event kafka).
+frontend:
+  url: http://localhost:3000
+```
 
 ---
 
-## 5. CÁC DEPENDENCY TỚI SERVICE KHÁC
+## 3. Cấu trúc package
 
-Thực sự `payment-service` KHÔNG GỌI TRỰC TIẾP API của các C-Service khác. Nó hoạt động theo mô hình **Event-Driven / Publisher**. Do đó phụ thuộc của nó được hiển thị qua Event Kafka. Bất kỳ service nào muốn xác nhận thanh toán thành công (ví dụ `order-service`) đều phải consume sự kiện này.
+```
+com.notfound.paymentservice
+├── controller/          # PaymentController
+├── service/             # VNPayService, ZaloPayService, MoMoService (interfaces)
+│   └── impl/            # VNPayServiceImpl, ZaloPayServiceImpl, MoMoServiceImpl
+├── repository/          # PaymentRepository
+├── model/
+│   ├── entity/          # Payment
+│   ├── dto/
+│   │   ├── request/     # PaymentRequest, VNPayCallbackRequest, MoMoCallbackRequest, ZaloPayCallbackRequest
+│   │   └── response/    # ApiResponse, PaymentResponse, CreatePaymentResponse
+│   └── enums/           # PaymentMethod, PaymentStatus
+├── config/              # VNPayConfig, MoMoConfig, ZaloPayConfig, RabbitMQConfig
+├── messaging/           # PaymentMessageProducer, PaymentCompletedEvent
+├── util/                # VNPayUtil, MoMoUtil, ZaloPayUtil, HMACUtil
+└── exception/           # GlobalExceptionHandler, AppException, ErrorCode
+```
 
-### 1. ORDER SERVICE @order-team
-**Event 1.1: Lắng nghe sự kiện Payment Completed (Dùng cho việc chốt đơn)**
+---
 
-- **Mục đích:** Khi web hook từ VNPay/ZaloPay/MoMo báo về `payment-service` thành công, `payment-service` sẽ push sự kiện này. Order Service cần consume topic này để đổi trạng thái đơn hàng từ `PENDING_PAYMENT` -> `PAID`/`PROCESSING`.
-- **Giao thức:** Kafka Messaging
-- **Topic:** `payment.completed`
-- **Message Payload (JSON):**
+## 4. Entity & DTO
+
+### Entity `Payment`
+
+| Field | Type | Mô tả |
+|---|---|---|
+| `paymentID` | UUID (PK) | Auto-generated |
+| `orderId` | UUID | Map sang order-service |
+| `amount` | Long | Số tiền (VND) |
+| `paymentMethod` | String | VNPAY / ZALOPAY / MOMO |
+| `status` | Enum | PENDING / COMPLETED / FAILED / REFUNDED |
+| `transactionId` | String | ID giao dịch từ payment gateway |
+| `redirectUrl` | String | URL redirect sau thanh toán |
+| `date` | LocalDateTime | Thời điểm tạo |
+
+### Request `PaymentRequest`
+
 ```json
 {
-  "orderId": "123e4567-e89b-12d3-a456-426614174000",
-  "paymentId": 12,
+  "orderId": "uuid",
+  "amount": 150000,
+  "orderInfo": "Thanh toan don hang abc",
+  "bankCode": "NCB",
+  "redirectUrl": "https://frontend.domain/result"
+}
+```
+
+---
+
+## 5. API
+
+Base path: `/api/v1/payment`
+
+### VNPay
+
+| Method | Endpoint | Mô tả |
+|---|---|---|
+| POST | `/vnpay/create` | Tạo payment URL → trả `{ paymentUrl }` |
+| GET | `/vnpay/callback` | VNPay redirect về, cập nhật status, publish event, redirect FE |
+
+### ZaloPay
+
+| Method | Endpoint | Mô tả |
+|---|---|---|
+| POST | `/zalopay/create` | Tạo order transaction ZaloPay |
+| POST | `/zalopay/callback` | Webhook server-to-server từ ZaloPay |
+| GET | `/zalopay/return` | Redirect về FE sau thanh toán |
+
+### MoMo
+
+| Method | Endpoint | Mô tả |
+|---|---|---|
+| POST | `/momo/create` | Tạo payment URL MoMo |
+| POST | `/momo/callback` | IPN server-to-server từ MoMo |
+| GET | `/momo/return` | Redirect về FE sau thanh toán |
+
+> **Lưu ý Gateway:** Các endpoint `/callback` và `/return` phải được whitelist tại API Gateway (không yêu cầu Bearer token vì payment gateway bên thứ 3 gọi trực tiếp).
+
+---
+
+## 6. Messaging (RabbitMQ)
+
+| | Giá trị |
+|---|---|
+| Exchange | `payment.exchange` |
+| Routing key (completed) | `payment.completed` |
+| Routing key (failed) | `payment.failed` |
+| Consumer | `order-service` |
+
+**Payload `PaymentCompletedEvent`:**
+
+```json
+{
+  "orderId": "uuid",
+  "paymentId": "uuid",
   "paymentMethod": "VNPAY",
   "status": "COMPLETED"
 }
 ```
-=> *(Order service bắt được Kafka payload này, sẽ dùng `orderId` để query database order, và cập nhật status sang Đã Thanh Toán).*
 
-### 2. API GATEWAY SERVICE @gateway-team
-**Config 2.1: Route config cho payment-service**
-- **Mục đích:** Khi Frontend gọi `/api/payment/...`, API Gateway phải định tuyến đúng về service `bookstore-payment-service`.
-- **Cấu hình Gateway yêu cầu:** Mapping path `/api/payment/**` tới host `lb://bookstore-payment-service`. Đồng thời lưu ý không yêu cầu Authentication Token (hoặc cho pass filter) với các endpoint `/callback` hay `/return` vì các hệ thống gateway thứ 3 như (VNPay, ZaloPay) sẽ gửi HTTP không mang Bearer token user.
+---
+
+## 7. Unit Tests
+
+### Chạy tests (không cần DB / RabbitMQ)
+
+```bash
+./mvnw test "-Dtest=VNPayServiceImplTest,MoMoServiceImplTest,ZaloPayServiceImplTest,PaymentControllerTest,VNPayCallbackRequestTest"
+```
+
+### Danh sách test files
+
+| File | Tests | Phạm vi |
+|---|---|---|
+| `service/VNPayServiceImplTest` | 8 | createPaymentUrl, handleReturn (sig invalid, not found, already done, success, failed), getRedirectUrl |
+| `service/MoMoServiceImplTest` | 7 | handleCallback (sig invalid, not found, already done, success, failed), getRedirectUrl |
+| `service/ZaloPayServiceImplTest` | 6 | handleCallback (MAC mismatch, not found, already done, success), getRedirectUrl |
+| `controller/PaymentControllerTest` | 8 | Tất cả endpoints VNPay/ZaloPay/MoMo, redirect fallback |
+| `util/VNPayCallbackRequestTest` | 11 | `isSuccess()`, `getAmountInVND()`, `getResponseMessage()` |
+
+**Kết quả:** 40 tests, 0 failures
+
+### Lưu ý khi viết tests cho SB4
+
+- `@WebMvcTest` và `@MockBean` **đã bị xóa** trong SB4 — dùng `MockMvcBuilders.standaloneSetup()` thay thế
+- `@MockitoBean` (Spring Framework 7) thay `@MockBean` nếu cần Spring context
+- Static method mock dùng `Mockito.mockStatic()` (Mockito 5.x, không cần dependency thêm)
+
+---
+
+## 8. Known Issues
+
+| # | Vấn đề | Trạng thái |
+|---|---|---|
+| Bug-001 | `VNPayCallbackRequest.getAmountInVND()` không handle null — ném NPE thay `NumberFormatException` | Open — null không phải case hợp lệ từ VNPay |
+| Bug-002 | README cũ ghi sai messaging là Kafka — thực tế dùng RabbitMQ | Fixed (2026-05-15) |
+| Bug-003 | README cũ ghi sai endpoint prefix `/api/payment/` — thực tế là `/api/v1/payment/` | Fixed (2026-05-15) |
