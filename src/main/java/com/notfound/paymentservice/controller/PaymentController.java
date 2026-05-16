@@ -17,9 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
-
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 
@@ -63,14 +61,15 @@ public class PaymentController {
             redirectUrl = frontendUrl;
         }
 
-        String finalRedirectUrl = redirectUrl
-                + "?resultCode=" + vnpParams.getVnp_ResponseCode()
-                + "&message=" + URLEncoder.encode(
-                    vnpParams.isSuccess() ? "Thanh toán thành công" : "Thanh toán thất bại",
-                    StandardCharsets.UTF_8)
-                + "&orderId=" + paymentResponse.getOrderId()
-                + "&paymentId=" + paymentResponse.getPaymentId()
-                + "&status=" + paymentResponse.getStatus().name();
+        String finalRedirectUrl = UriComponentsBuilder.fromUriString(redirectUrl)
+                .queryParam("resultCode", vnpParams.getVnp_ResponseCode())
+                .queryParam("message", vnpParams.isSuccess() ? "Thanh toán thành công" : "Thanh toán thất bại")
+                .queryParam("orderId", paymentResponse.getOrderId())
+                .queryParam("paymentId", paymentResponse.getPaymentId())
+                .queryParam("status", paymentResponse.getStatus().name())
+                .build()
+                .encode()
+                .toUriString();
 
         response.sendRedirect(finalRedirectUrl);
     }
@@ -113,9 +112,15 @@ public class PaymentController {
     ) throws IOException {
         int resultCode = (status != null && status == 1) ? 0 : 1;
         String message = (resultCode == 0) ? "Thanh toán thành công" : "Thanh toán thất bại";
-        String orderId = "";
-        String paymentId = "";
         String paymentStatus = (resultCode == 0) ? "COMPLETED" : "FAILED";
+
+        if (resultCode != 0) {
+            try {
+                zaloPayService.markPaymentFailed(apptransid);
+            } catch (Exception e) {
+                log.warn("markPaymentFailed ZaloPay apptransid={} fail: {}", apptransid, e.getMessage());
+            }
+        }
 
         String redirectUrl = frontendUrl;
         if (apptransid != null && !apptransid.isEmpty()) {
@@ -128,12 +133,15 @@ public class PaymentController {
             }
         }
 
-        String finalRedirectUrl = redirectUrl
-                + "?resultCode=" + resultCode
-                + "&message=" + URLEncoder.encode(message, StandardCharsets.UTF_8)
-                + "&orderId=" + orderId
-                + "&paymentId=" + paymentId
-                + "&status=" + paymentStatus;
+        String finalRedirectUrl = UriComponentsBuilder.fromUriString(redirectUrl)
+                .queryParam("resultCode", resultCode)
+                .queryParam("message", message)
+                .queryParam("orderId", "")
+                .queryParam("paymentId", "")
+                .queryParam("status", paymentStatus)
+                .build()
+                .encode()
+                .toUriString();
 
         response.sendRedirect(finalRedirectUrl);
     }
@@ -212,12 +220,15 @@ public class PaymentController {
             }
         }
 
-        String finalRedirectUrl = redirectUrl
-                + "?resultCode=" + resultCode
-                + "&message=" + (message != null ? URLEncoder.encode(message, StandardCharsets.UTF_8) : "")
-                + "&orderId=" + paymentResponse.getOrderId()
-                + "&paymentId=" + paymentResponse.getPaymentId()
-                + "&status=" + paymentResponse.getStatus().name();
+        String finalRedirectUrl = UriComponentsBuilder.fromUriString(redirectUrl)
+                .queryParam("resultCode", resultCode)
+                .queryParam("message", message != null ? message : "")
+                .queryParam("orderId", paymentResponse.getOrderId())
+                .queryParam("paymentId", paymentResponse.getPaymentId())
+                .queryParam("status", paymentResponse.getStatus().name())
+                .build()
+                .encode()
+                .toUriString();
 
         response.sendRedirect(finalRedirectUrl);
     }
