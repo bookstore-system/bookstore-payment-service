@@ -169,6 +169,16 @@ Base path: `/api/v1/payment`
 }
 ```
 
+### Khi nào publish event
+
+| Gateway | Trigger COMPLETED | Trigger FAILED |
+|---|---|---|
+| **VNPay** | `handleVNPayReturn` — signature valid + `isSuccess()` | `handleVNPayReturn` — signature valid + `!isSuccess()` |
+| **MoMo** | `handleMoMoCallback` — signature valid + `resultCode == 0` | `handleMoMoCallback` — signature valid + `resultCode != 0` (null-safe) |
+| **ZaloPay** | `handleCallback` — MAC valid (ZaloPay chỉ IPN khi success) | `/zalopay/return` — `status != 1` → gọi `markPaymentFailed(appTransId)` |
+
+Idempotency: callback chỉ xử lý nếu `Payment.status == PENDING`. Status đã chuyển → bỏ qua, không publish lại.
+
 ---
 
 ## 7. Unit Tests
@@ -206,3 +216,19 @@ Base path: `/api/v1/payment`
 | Bug-001 | `VNPayCallbackRequest.getAmountInVND()` không handle null — ném NPE thay `NumberFormatException` | Open — null không phải case hợp lệ từ VNPay |
 | Bug-002 | README cũ ghi sai messaging là Kafka — thực tế dùng RabbitMQ | Fixed (2026-05-15) |
 | Bug-003 | README cũ ghi sai endpoint prefix `/api/payment/` — thực tế là `/api/v1/payment/` | Fixed (2026-05-15) |
+| Bug-004 | VNPay/MoMo handler fail không publish `payment.failed` → order kẹt PENDING | Fixed (2026-05-16) |
+| Bug-005 | ZaloPay return status != 1 không update Payment.status & không publish failed event | Fixed (2026-05-16) — `markPaymentFailed(appTransId)` |
+| Bug-006 | MoMo `resultCode == 0` NPE khi callback gửi null | Fixed (2026-05-16) |
+| Bug-007 | Redirect URL build bằng string concat + `URLEncoder` thủ công | Fixed (2026-05-16) — `UriComponentsBuilder` |
+| Bug-008 | `MoMoServiceImpl` `new RestTemplate()` / `new ObjectMapper()` thay vì `@Bean` | Open (Phase 2) |
+| Bug-009 | Callback handler race condition (no DB lock) — 2 callback đồng thời cùng đọc PENDING | Open (Phase 3) |
+| Bug-010 | `Payment` entity thiếu `userId` → khó audit | Open (Phase 3) |
+
+## 9. Changelog
+
+### 2026-05-16 — Phase 1 fixes
+- **H2** Publish `payment.failed` event ở 3 gateway (VNPay/MoMo/ZaloPay) → consumer order-service nhận event để cancel order
+- **M3** Null-safe `resultCode == 0` MoMo callback
+- **L6** 3 redirect URL build dùng `UriComponentsBuilder.queryParam(...).build().encode().toUriString()`
+- Thêm method `ZaloPayService.markPaymentFailed(appTransId)` — gọi từ controller `/zalopay/return` khi status != 1
+- Test cập nhật: 2 test fail behavior cũ → assert event sent

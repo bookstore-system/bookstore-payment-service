@@ -199,27 +199,6 @@ public class ZaloPayServiceImpl implements ZaloPayService {
 
     @Override
     @Transactional
-    public void markPaymentCompleted(String appTransId) {
-        if (appTransId == null || appTransId.isEmpty()) {
-            return;
-        }
-        paymentRepository.findByTransactionId(appTransId).ifPresent(payment -> {
-            if (payment.getStatus() != PaymentStatus.PENDING) {
-                return;
-            }
-            payment.setStatus(PaymentStatus.COMPLETED);
-            paymentRepository.save(payment);
-            paymentMessageProducer.sendPaymentCompletedEvent(PaymentCompletedEvent.builder()
-                    .orderId(payment.getOrderId())
-                    .paymentId(payment.getPaymentID())
-                    .paymentMethod(payment.getPaymentMethod())
-                    .status(PaymentStatus.COMPLETED.name())
-                    .build());
-        });
-    }
-
-    @Override
-    @Transactional
     public void markPaymentFailed(String appTransId) {
         if (appTransId == null || appTransId.isEmpty()) {
             return;

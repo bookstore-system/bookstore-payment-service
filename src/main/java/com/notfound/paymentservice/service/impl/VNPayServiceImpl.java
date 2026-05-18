@@ -90,9 +90,20 @@ public class VNPayServiceImpl implements VNPayService {
 
         if (vnpParamsRequest.isSuccess()) {
             payment.setStatus(PaymentStatus.COMPLETED);
-            paymentMessageProducer.sendPaymentCompletedEvent(PaymentCompletedEvent.builder().orderId(payment.getOrderId()).paymentId(payment.getPaymentID()).paymentMethod(payment.getPaymentMethod()).status(PaymentStatus.COMPLETED.name()).build());
+            paymentMessageProducer.sendPaymentCompletedEvent(PaymentCompletedEvent.builder()
+                    .orderId(payment.getOrderId())
+                    .paymentId(payment.getPaymentID())
+                    .paymentMethod(payment.getPaymentMethod())
+                    .status(PaymentStatus.COMPLETED.name())
+                    .build());
         } else {
             payment.setStatus(PaymentStatus.FAILED);
+            paymentMessageProducer.sendPaymentFailedEvent(PaymentCompletedEvent.builder()
+                    .orderId(payment.getOrderId())
+                    .paymentId(payment.getPaymentID())
+                    .paymentMethod(payment.getPaymentMethod())
+                    .status(PaymentStatus.FAILED.name())
+                    .build());
         }
 
         paymentRepository.save(payment);

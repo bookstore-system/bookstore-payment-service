@@ -145,7 +145,7 @@ class VNPayServiceImplTest {
     }
 
     @Test
-    void handleVNPayReturn_failedCallback_setsFailedNoEventSent() {
+    void handleVNPayReturn_failedCallback_setsFailedAndPublishesFailedEvent() {
         Payment payment = buildPayment(PaymentStatus.PENDING);
         VNPayCallbackRequest request = VNPayCallbackRequest.builder()
                 .vnp_TxnRef("TXN-001")
@@ -160,7 +160,8 @@ class VNPayServiceImplTest {
         PaymentResponse response = vnPayService.handleVNPayReturn(request);
 
         assertThat(response.getStatus()).isEqualTo(PaymentStatus.FAILED);
-        verifyNoInteractions(paymentMessageProducer);
+        verify(paymentMessageProducer).sendPaymentFailedEvent(any(PaymentCompletedEvent.class));
+        verify(paymentMessageProducer, org.mockito.Mockito.never()).sendPaymentCompletedEvent(any());
     }
 
     @Test

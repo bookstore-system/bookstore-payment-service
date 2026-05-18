@@ -148,11 +148,23 @@ public class MoMoServiceImpl implements MoMoService {
             return mapToResponse(payment);
         }
 
-        if (callbackRequest.getResultCode() == 0) {
+        Integer resultCode = callbackRequest.getResultCode();
+        if (resultCode != null && resultCode == 0) {
             payment.setStatus(PaymentStatus.COMPLETED);
-            paymentMessageProducer.sendPaymentCompletedEvent(PaymentCompletedEvent.builder().orderId(payment.getOrderId()).paymentId(payment.getPaymentID()).paymentMethod(payment.getPaymentMethod()).status(PaymentStatus.COMPLETED.name()).build());
+            paymentMessageProducer.sendPaymentCompletedEvent(PaymentCompletedEvent.builder()
+                    .orderId(payment.getOrderId())
+                    .paymentId(payment.getPaymentID())
+                    .paymentMethod(payment.getPaymentMethod())
+                    .status(PaymentStatus.COMPLETED.name())
+                    .build());
         } else {
             payment.setStatus(PaymentStatus.FAILED);
+            paymentMessageProducer.sendPaymentFailedEvent(PaymentCompletedEvent.builder()
+                    .orderId(payment.getOrderId())
+                    .paymentId(payment.getPaymentID())
+                    .paymentMethod(payment.getPaymentMethod())
+                    .status(PaymentStatus.FAILED.name())
+                    .build());
         }
 
         paymentRepository.save(payment);
