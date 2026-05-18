@@ -2,6 +2,9 @@ server:
   port: 8085
 
 spring:
+  config:
+    import: optional:file:.env[.properties]
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3310/bookstore_payment?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
     username: ${SPRING_DATASOURCE_USERNAME:bookstore}

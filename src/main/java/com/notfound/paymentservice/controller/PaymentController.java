@@ -1,5 +1,19 @@
 package com.notfound.paymentservice.controller;
 
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.UriComponentsBuilder;
+
 import com.notfound.paymentservice.model.dto.request.MoMoCallbackRequest;
 import com.notfound.paymentservice.model.dto.request.PaymentRequest;
 import com.notfound.paymentservice.model.dto.request.VNPayCallbackRequest;
@@ -11,17 +25,12 @@ import com.notfound.paymentservice.model.dto.response.ZaloPayCallBackResponseDTO
 import com.notfound.paymentservice.service.MoMoService;
 import com.notfound.paymentservice.service.VNPayService;
 import com.notfound.paymentservice.service.ZaloPayService;
+import com.notfound.paymentservice.util.HMACUtil;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.web.bind.annotation.*;
-
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-
-import java.io.IOException;
 
 @Slf4j
 @RestController
@@ -36,13 +45,15 @@ public class PaymentController {
     @Value("${frontend.url}")
     private String frontendUrl;
 
+    @Value("${payment.zaloPay.key2}")
+    private String zaloPayKey2;
+
     // ================== VNPAY ==================
 
     @PostMapping("/vnpay/create")
     public ApiResponse<CreatePaymentResponse> createVNPayPayment(
             @RequestBody PaymentRequest request,
-            HttpServletRequest httpServletRequest
-    ) {
+            HttpServletRequest httpServletRequest) {
         CreatePaymentResponse vnPayPaymentUrl = vnPayService.createVNPayPaymentUrl(request, httpServletRequest);
         return ApiResponse.<CreatePaymentResponse>builder()
                 .code(200)
@@ -54,8 +65,7 @@ public class PaymentController {
     @GetMapping("/vnpay/callback")
     public void handleVNPayReturn(
             VNPayCallbackRequest vnpParams,
-            HttpServletResponse response
-    ) throws IOException {
+            HttpServletResponse response) throws IOException {
         PaymentResponse paymentResponse = vnPayService.handleVNPayReturn(vnpParams);
         String redirectUrl = vnPayService.getRedirectUrlByTransactionId(vnpParams.getVnp_TxnRef());
 
@@ -66,8 +76,8 @@ public class PaymentController {
         String finalRedirectUrl = redirectUrl
                 + "?resultCode=" + vnpParams.getVnp_ResponseCode()
                 + "&message=" + URLEncoder.encode(
-                    vnpParams.isSuccess() ? "Thanh toán thành công" : "Thanh toán thất bại",
-                    StandardCharsets.UTF_8)
+                        vnpParams.isSuccess() ? "Thanh toán thành công" : "Thanh toán thất bại",
+                        StandardCharsets.UTF_8)
                 + "&orderId=" + paymentResponse.getOrderId()
                 + "&paymentId=" + paymentResponse.getPaymentId()
                 + "&status=" + paymentResponse.getStatus().name();
@@ -79,8 +89,7 @@ public class PaymentController {
 
     @PostMapping("/zalopay/create")
     public ApiResponse<CreatePaymentResponse> createZaloPayment(
-            @RequestBody PaymentRequest request
-    ) {
+            @RequestBody PaymentRequest request) {
         CreatePaymentResponse response = zaloPayService.createOrderTransaction(request);
         return ApiResponse.<CreatePaymentResponse>builder()
                 .code(200)
@@ -107,16 +116,33 @@ public class PaymentController {
 
     @GetMapping("/zalopay/return")
     public void handleZaloPayReturn(
-            @RequestParam(required = false) String apptransid,
-            @RequestParam(required = false) Integer status,
-            HttpServletResponse response
-    ) throws IOException {
+            @RequestParam Map<String, String> params,
+            HttpServletResponse response) throws IOException {
+        String apptransid = params.get("apptransid");
+        Integer status = parseInteger(params.get("status"));
+        if (!isValidZaloPayRedirect(params)) {
+            log.warn("Invalid ZaloPay redirect checksum: apptransid={}", apptransid);
+            redirectZaloPayResult(response, frontendUrl, 1, "Thanh toán ZaloPay không hợp lệ", "FAILED");
+            return;
+        }
+
         int resultCode = (status != null && status == 1) ? 0 : 1;
         String message = (resultCode == 0) ? "Thanh toán thành công" : "Thanh toán thất bại";
-        String orderId = "";
-        String paymentId = "";
         String paymentStatus = (resultCode == 0) ? "COMPLETED" : "FAILED";
 
+        if (resultCode == 0) {
+            try {
+                zaloPayService.markPaymentCompleted(apptransid);
+            } catch (Exception e) {
+                log.warn("markPaymentCompleted ZaloPay apptransid={} fail: {}", apptransid, e.getMessage());
+            }
+        } else {
+            try {
+                zaloPayService.markPaymentFailed(apptransid);
+            } catch (Exception e) {
+                log.warn("markPaymentFailed ZaloPay apptransid={} fail: {}", apptransid, e.getMessage());
+            }
+        }
         String redirectUrl = frontendUrl;
         if (apptransid != null && !apptransid.isEmpty()) {
             try {
@@ -128,13 +154,55 @@ public class PaymentController {
             }
         }
 
-        String finalRedirectUrl = redirectUrl
-                + "?resultCode=" + resultCode
-                + "&message=" + URLEncoder.encode(message, StandardCharsets.UTF_8)
-                + "&orderId=" + orderId
-                + "&paymentId=" + paymentId
-                + "&status=" + paymentStatus;
+        redirectZaloPayResult(response, redirectUrl, resultCode, message, paymentStatus);
+    }
 
+    private boolean isValidZaloPayRedirect(Map<String, String> params) {
+        String checksum = params.get("checksum");
+        if (checksum == null || checksum.isBlank()) {
+            return true;
+        }
+
+        String checksumData = params.getOrDefault("appid", "") + "|"
+                + params.getOrDefault("apptransid", "") + "|"
+                + params.getOrDefault("pmcid", "") + "|"
+                + params.getOrDefault("bankcode", "") + "|"
+                + params.getOrDefault("amount", "") + "|"
+                + params.getOrDefault("discountamount", "") + "|"
+                + params.getOrDefault("status", "");
+        String expectedChecksum = HMACUtil.HMacHexStringEncode(
+                HMACUtil.HMACSHA256,
+                zaloPayKey2,
+                checksumData);
+        return checksum.equalsIgnoreCase(expectedChecksum);
+    }
+
+    private Integer parseInteger(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private void redirectZaloPayResult(
+            HttpServletResponse response,
+            String redirectUrl,
+            int resultCode,
+            String message,
+            String paymentStatus) throws IOException {
+        String finalRedirectUrl = UriComponentsBuilder.fromUriString(redirectUrl)
+                .queryParam("resultCode", resultCode)
+                .queryParam("message", message)
+                .queryParam("orderId", "")
+                .queryParam("paymentId", "")
+                .queryParam("status", paymentStatus)
+                .build()
+                .encode()
+                .toUriString();
         response.sendRedirect(finalRedirectUrl);
     }
 
@@ -142,8 +210,7 @@ public class PaymentController {
 
     @PostMapping("/momo/create")
     public ApiResponse<CreatePaymentResponse> createMoMoPayment(
-            @RequestBody PaymentRequest request
-    ) {
+            @RequestBody PaymentRequest request) {
         CreatePaymentResponse response = moMoService.createMoMoPayment(request);
         return ApiResponse.<CreatePaymentResponse>builder()
                 .code(200)
@@ -154,8 +221,7 @@ public class PaymentController {
 
     @PostMapping("/momo/callback")
     public ApiResponse<PaymentResponse> handleMoMoCallback(
-            @RequestBody MoMoCallbackRequest callback
-    ) {
+            @RequestBody MoMoCallbackRequest callback) {
         PaymentResponse response = moMoService.handleMoMoCallback(callback);
         return ApiResponse.<PaymentResponse>builder()
                 .code(200)
@@ -179,8 +245,7 @@ public class PaymentController {
             @RequestParam(required = false) Long responseTime,
             @RequestParam(required = false) String extraData,
             @RequestParam(required = false) String signature,
-            HttpServletResponse response
-    ) throws IOException {
+            HttpServletResponse response) throws IOException {
         MoMoCallbackRequest callback = new MoMoCallbackRequest();
         callback.setPartnerCode(partnerCode);
         callback.setOrderId(orderId);

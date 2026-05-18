@@ -8,4 +8,6 @@ public interface ZaloPayService {
     CreatePaymentResponse createOrderTransaction(PaymentRequest request);
     boolean handleCallback(ZaloPayCallbackRequest cbData);
     String getRedirectUrlByTransactionId(String transactionId);
+    void markPaymentCompleted(String appTransId);
+    void markPaymentFailed(String appTransId);
 }
