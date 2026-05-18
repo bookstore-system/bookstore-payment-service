@@ -126,6 +126,27 @@ public class ZaloPayServiceImpl implements ZaloPayService {
                 .orElse(null);
     }
 
+    @Override
+    @Transactional
+    public void markPaymentFailed(String appTransId) {
+        if (appTransId == null || appTransId.isEmpty()) {
+            return;
+        }
+        paymentRepository.findByTransactionId(appTransId).ifPresent(payment -> {
+            if (payment.getStatus() != PaymentStatus.PENDING) {
+                return;
+            }
+            payment.setStatus(PaymentStatus.FAILED);
+            paymentRepository.save(payment);
+            paymentMessageProducer.sendPaymentFailedEvent(PaymentCompletedEvent.builder()
+                    .orderId(payment.getOrderId())
+                    .paymentId(payment.getPaymentID())
+                    .paymentMethod(payment.getPaymentMethod())
+                    .status(PaymentStatus.FAILED.name())
+                    .build());
+        });
+    }
+
     @Transactional
     public boolean handleCallback(ZaloPayCallbackRequest cbData) {
         try {

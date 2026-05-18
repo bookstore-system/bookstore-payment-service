@@ -111,7 +111,7 @@ class MoMoServiceImplTest {
     }
 
     @Test
-    void handleMoMoCallback_nonZeroResultCode_setsFailedNoEventSent() {
+    void handleMoMoCallback_nonZeroResultCode_setsFailedAndPublishesFailedEvent() {
         Payment payment = buildPayment(PaymentStatus.PENDING);
         MoMoCallbackRequest callback = buildCallback(1006, "valid-sig");
         when(moMoUtil.verifySignature(anyString(), anyString())).thenReturn(true);
@@ -121,7 +121,8 @@ class MoMoServiceImplTest {
         PaymentResponse response = moMoService.handleMoMoCallback(callback);
 
         assertThat(response.getStatus()).isEqualTo(PaymentStatus.FAILED);
-        verifyNoInteractions(paymentMessageProducer);
+        verify(paymentMessageProducer).sendPaymentFailedEvent(any(PaymentCompletedEvent.class));
+        verify(paymentMessageProducer, org.mockito.Mockito.never()).sendPaymentCompletedEvent(any());
     }
 
     @Test
