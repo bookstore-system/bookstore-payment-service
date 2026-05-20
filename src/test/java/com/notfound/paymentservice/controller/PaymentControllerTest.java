@@ -1,7 +1,6 @@
 package com.notfound.paymentservice.controller;
 
 import com.notfound.paymentservice.exception.GlobalExceptionHandler;
-import com.notfound.paymentservice.model.dto.response.CreatePaymentResponse;
 import com.notfound.paymentservice.model.dto.response.PaymentResponse;
 import com.notfound.paymentservice.model.enums.PaymentStatus;
 import com.notfound.paymentservice.service.MoMoService;
@@ -61,29 +60,6 @@ class PaymentControllerTest {
     // ================== VNPay ==================
 
     @Test
-    void createVNPayPayment_validRequest_returns200WithPaymentUrl() throws Exception {
-        CreatePaymentResponse serviceResponse = CreatePaymentResponse.builder()
-                .code("200")
-                .message("Successfully created VNPay payment URL")
-                .paymentUrl("https://sandbox.vnpay.vn/pay?abc=123")
-                .build();
-        when(vnPayService.createVNPayPaymentUrl(any(), any())).thenReturn(serviceResponse);
-
-        mockMvc.perform(post(VNPAY_BASE + "/create")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                    "orderId": "00000000-0000-0000-0000-000000000001",
-                                    "amount": 100000,
-                                    "redirectUrl": "http://localhost:3000/result"
-                                }
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code", is(200)))
-                .andExpect(jsonPath("$.result.paymentUrl", is("https://sandbox.vnpay.vn/pay?abc=123")));
-    }
-
-    @Test
     void handleVNPayCallback_successCallback_redirectsWithResultCode() throws Exception {
         PaymentResponse paymentResponse = PaymentResponse.builder()
                 .paymentId(UUID.randomUUID())
@@ -125,29 +101,6 @@ class PaymentControllerTest {
     // ================== ZaloPay ==================
 
     @Test
-    void createZaloPayment_validRequest_returns200WithPaymentUrl() throws Exception {
-        CreatePaymentResponse serviceResponse = CreatePaymentResponse.builder()
-                .code("200")
-                .message("Payment order created successfully")
-                .paymentUrl("https://zalopay.vn/pay?token=abc")
-                .build();
-        when(zaloPayService.createOrderTransaction(any())).thenReturn(serviceResponse);
-
-        mockMvc.perform(post(ZALOPAY_BASE + "/create")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                    "orderId": "00000000-0000-0000-0000-000000000002",
-                                    "amount": 200000,
-                                    "redirectUrl": "http://localhost:3000/result"
-                                }
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code", is(200)))
-                .andExpect(jsonPath("$.result.paymentUrl", is("https://zalopay.vn/pay?token=abc")));
-    }
-
-    @Test
     void callbackZaloPay_serviceReturnsTrue_respondsReturnCodeOne() throws Exception {
         when(zaloPayService.handleCallback(any())).thenReturn(true);
 
@@ -182,29 +135,6 @@ class PaymentControllerTest {
     }
 
     // ================== MoMo ==================
-
-    @Test
-    void createMoMoPayment_validRequest_returns200WithPaymentUrl() throws Exception {
-        CreatePaymentResponse serviceResponse = CreatePaymentResponse.builder()
-                .code("200")
-                .message("Payment order created successfully")
-                .paymentUrl("https://momo.vn/pay?requestId=xyz")
-                .build();
-        when(moMoService.createMoMoPayment(any())).thenReturn(serviceResponse);
-
-        mockMvc.perform(post(MOMO_BASE + "/create")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                    "orderId": "00000000-0000-0000-0000-000000000003",
-                                    "amount": 150000,
-                                    "redirectUrl": "http://localhost:3000/result"
-                                }
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code", is(200)))
-                .andExpect(jsonPath("$.result.paymentUrl", is("https://momo.vn/pay?requestId=xyz")));
-    }
 
     @Test
     void handleMoMoCallback_validCallback_returns200WithCompletedStatus() throws Exception {

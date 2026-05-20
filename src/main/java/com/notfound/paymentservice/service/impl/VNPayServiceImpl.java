@@ -50,21 +50,39 @@ public class VNPayServiceImpl implements VNPayService {
     @Transactional
     public CreatePaymentResponse createVNPayPaymentUrl(PaymentRequest request, HttpServletRequest httpServletRequest) {
         String transactionId = generateTransactionId();
+        String paymentUrl = vnPayUtil.generatePaymentUrl(transactionId, request.getAmount(), httpServletRequest);
+        savePayment(request, transactionId, paymentUrl);
+        return createVNPayPaymentUrl(paymentUrl);
+    }
+
+    @Override
+    @Transactional
+    public CreatePaymentResponse createVNPayPaymentUrl(PaymentRequest request) {
+        String transactionId = generateTransactionId();
+        String paymentUrl = vnPayUtil.generatePaymentUrl(transactionId, request.getAmount(), "127.0.0.1");
+        savePayment(request, transactionId, paymentUrl);
+        return createVNPayPaymentUrl(paymentUrl);
+    }
+
+    private Payment savePayment(PaymentRequest request, String transactionId, String paymentUrl) {
         long amount = request.getAmount();
 
         Payment payment = Payment.builder()
                 .orderId(request.getOrderId())
+                .sagaId(request.getSagaId())
+                .userId(request.getUserId())
                 .amount(amount)
                 .paymentMethod(PaymentMethod.VNPAY.name())
                 .status(PaymentStatus.PENDING)
                 .transactionId(transactionId)
                 .redirectUrl(request.getRedirectUrl())
+                .paymentUrl(paymentUrl)
                 .date(LocalDateTime.now())
                 .build();
-        paymentRepository.save(payment);
+        return paymentRepository.save(payment);
+    }
 
-        String paymentUrl = vnPayUtil.generatePaymentUrl(transactionId, amount, httpServletRequest);
-
+    private CreatePaymentResponse createVNPayPaymentUrl(String paymentUrl) {
         return CreatePaymentResponse.builder()
                 .code("200")
                 .message("Successfully created VNPay payment URL")
@@ -91,16 +109,20 @@ public class VNPayServiceImpl implements VNPayService {
         if (vnpParamsRequest.isSuccess()) {
             payment.setStatus(PaymentStatus.COMPLETED);
             paymentMessageProducer.sendPaymentCompletedEvent(PaymentCompletedEvent.builder()
+                    .sagaId(payment.getSagaId())
                     .orderId(payment.getOrderId())
                     .paymentId(payment.getPaymentID())
+                    .userId(payment.getUserId())
                     .paymentMethod(payment.getPaymentMethod())
                     .status(PaymentStatus.COMPLETED.name())
                     .build());
         } else {
             payment.setStatus(PaymentStatus.FAILED);
             paymentMessageProducer.sendPaymentFailedEvent(PaymentCompletedEvent.builder()
+                    .sagaId(payment.getSagaId())
                     .orderId(payment.getOrderId())
                     .paymentId(payment.getPaymentID())
+                    .userId(payment.getUserId())
                     .paymentMethod(payment.getPaymentMethod())
                     .status(PaymentStatus.FAILED.name())
                     .build());

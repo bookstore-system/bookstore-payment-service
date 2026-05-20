@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 public interface VNPayService {
     CreatePaymentResponse createVNPayPaymentUrl(PaymentRequest request, HttpServletRequest httpServletRequest);
+    CreatePaymentResponse createVNPayPaymentUrl(PaymentRequest request);
     PaymentResponse handleVNPayReturn(VNPayCallbackRequest vnpParamsRequest);
     String getRedirectUrlByTransactionId(String transactionId);
 }

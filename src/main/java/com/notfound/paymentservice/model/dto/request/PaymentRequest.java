@@ -11,8 +11,10 @@ import java.util.UUID;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class PaymentRequest {
     UUID orderId;
+    UUID sagaId;
     Long amount;
     String orderInfo;
     String bankCode;
     String redirectUrl;
+    String userId;
 }

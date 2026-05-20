@@ -61,6 +61,8 @@ public class MoMoServiceImpl implements MoMoService {
 
             Payment payment = Payment.builder()
                     .orderId(request.getOrderId())
+                    .sagaId(request.getSagaId())
+                    .userId(request.getUserId())
                     .amount(request.getAmount())
                     .paymentMethod(PaymentMethod.MOMO.name())
                     .status(PaymentStatus.PENDING)
@@ -106,6 +108,8 @@ public class MoMoServiceImpl implements MoMoService {
             Map<String, Object> jsonResponse = objectMapper.readValue(response.getBody(), Map.class);
 
             if (jsonResponse.containsKey("payUrl") && jsonResponse.get("payUrl") != null) {
+                payment.setPaymentUrl((String) jsonResponse.get("payUrl"));
+                paymentRepository.save(payment);
                 return CreatePaymentResponse.builder()
                         .code("200")
                         .message("Successfully created MoMo payment URL")
@@ -152,16 +156,20 @@ public class MoMoServiceImpl implements MoMoService {
         if (resultCode != null && resultCode == 0) {
             payment.setStatus(PaymentStatus.COMPLETED);
             paymentMessageProducer.sendPaymentCompletedEvent(PaymentCompletedEvent.builder()
+                    .sagaId(payment.getSagaId())
                     .orderId(payment.getOrderId())
                     .paymentId(payment.getPaymentID())
+                    .userId(payment.getUserId())
                     .paymentMethod(payment.getPaymentMethod())
                     .status(PaymentStatus.COMPLETED.name())
                     .build());
         } else {
             payment.setStatus(PaymentStatus.FAILED);
             paymentMessageProducer.sendPaymentFailedEvent(PaymentCompletedEvent.builder()
+                    .sagaId(payment.getSagaId())
                     .orderId(payment.getOrderId())
                     .paymentId(payment.getPaymentID())
+                    .userId(payment.getUserId())
                     .paymentMethod(payment.getPaymentMethod())
                     .status(PaymentStatus.FAILED.name())
                     .build());

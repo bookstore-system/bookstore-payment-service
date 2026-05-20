@@ -15,35 +15,39 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMQConfig {
 
-    public static final String PAYMENT_EXCHANGE = "payment.exchange";
-    public static final String PAYMENT_COMPLETED_QUEUE = "payment.completed.queue";
     public static final String PAYMENT_COMPLETED_KEY = "payment.completed";
-    public static final String PAYMENT_FAILED_QUEUE = "payment.failed.queue";
     public static final String PAYMENT_FAILED_KEY = "payment.failed";
+    public static final String COMMAND_EXCHANGE = "bookstore.commands";
+    public static final String EVENT_EXCHANGE = "bookstore.events";
+    public static final String PAYMENT_COMMANDS_QUEUE = "payment.commands.queue";
+    public static final String PAYMENT_CREATE_COMMAND_KEY = "payment.create.command";
+    public static final String PAYMENT_REFUND_COMMAND_KEY = "payment.refund.command";
+    public static final String PAYMENT_CREATED_KEY = "payment.created";
+    public static final String PAYMENT_REFUNDED_KEY = "payment.refunded";
 
     @Bean
-    public TopicExchange paymentExchange() {
-        return new TopicExchange(PAYMENT_EXCHANGE);
+    public TopicExchange commandExchange() {
+        return new TopicExchange(COMMAND_EXCHANGE);
     }
 
     @Bean
-    public Queue paymentCompletedQueue() {
-        return new Queue(PAYMENT_COMPLETED_QUEUE, true);
+    public TopicExchange eventExchange() {
+        return new TopicExchange(EVENT_EXCHANGE);
     }
 
     @Bean
-    public Queue paymentFailedQueue() {
-        return new Queue(PAYMENT_FAILED_QUEUE, true);
+    public Queue paymentCommandsQueue() {
+        return new Queue(PAYMENT_COMMANDS_QUEUE, true);
     }
 
     @Bean
-    public Binding completedBinding(Queue paymentCompletedQueue, TopicExchange paymentExchange) {
-        return BindingBuilder.bind(paymentCompletedQueue).to(paymentExchange).with(PAYMENT_COMPLETED_KEY);
+    public Binding paymentCreateCommandBinding(Queue paymentCommandsQueue, TopicExchange commandExchange) {
+        return BindingBuilder.bind(paymentCommandsQueue).to(commandExchange).with(PAYMENT_CREATE_COMMAND_KEY);
     }
 
     @Bean
-    public Binding failedBinding(Queue paymentFailedQueue, TopicExchange paymentExchange) {
-        return BindingBuilder.bind(paymentFailedQueue).to(paymentExchange).with(PAYMENT_FAILED_KEY);
+    public Binding paymentRefundCommandBinding(Queue paymentCommandsQueue, TopicExchange commandExchange) {
+        return BindingBuilder.bind(paymentCommandsQueue).to(commandExchange).with(PAYMENT_REFUND_COMMAND_KEY);
     }
 
     @Bean

@@ -25,7 +25,10 @@ public class VNPayUtil {
 
     public String generatePaymentUrl(String transactionId, Long amount, HttpServletRequest request) {
         String clientIp = getClientIpAddress(request);
+        return generatePaymentUrl(transactionId, amount, clientIp);
+    }
 
+    public String generatePaymentUrl(String transactionId, Long amount, String clientIp) {
         // 1. Get VNPay params
         Map<String, String> vnpParams = vnPayConfig.getVNPayConfig(transactionId, amount, clientIp);
 
