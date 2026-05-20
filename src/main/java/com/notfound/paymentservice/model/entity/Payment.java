@@ -44,6 +44,9 @@ public class Payment {
     @Column(name = "redirect_url", length = 500)
     String redirectUrl;
 
+    @Column(name = "payment_url", length = 1024)
+    String paymentUrl;
+
     @Column(name = "transaction_fee")
     Double transactionFee;
 
@@ -52,6 +55,12 @@ public class Payment {
 
     @Column(name = "order_id", nullable = false)
     UUID orderId;
+
+    @Column(name = "saga_id", unique = true)
+    UUID sagaId;
+
+    @Column(name = "user_id")
+    String userId;
 
     public Payment(String paymentMethod, Long amount, UUID orderId) {
         this.paymentMethod = paymentMethod;

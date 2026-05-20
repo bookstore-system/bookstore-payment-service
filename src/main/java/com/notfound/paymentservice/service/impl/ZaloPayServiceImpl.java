@@ -68,6 +68,8 @@ public class ZaloPayServiceImpl implements ZaloPayService {
 
             Payment payment = Payment.builder()
                     .orderId(request.getOrderId())
+                    .sagaId(request.getSagaId())
+                    .userId(request.getUserId())
                     .amount(request.getAmount())
                     .paymentMethod(PaymentMethod.ZALOPAY.name())
                     .status(PaymentStatus.PENDING)
@@ -108,6 +110,8 @@ public class ZaloPayServiceImpl implements ZaloPayService {
             log.info("ZaloPay response: returnCode={}, returnMessage={}", returnCode, returnMessage);
 
             if (returnCode == 1) {
+                payment.setPaymentUrl(getString(jsonResult, "order_url", "orderurl"));
+                paymentRepository.save(payment);
                 return CreatePaymentResponse.builder()
                         .code("200")
                         .message("Successfully created ZaloPay payment URL")
@@ -210,8 +214,10 @@ public class ZaloPayServiceImpl implements ZaloPayService {
             payment.setStatus(PaymentStatus.FAILED);
             paymentRepository.save(payment);
             paymentMessageProducer.sendPaymentFailedEvent(PaymentCompletedEvent.builder()
+                    .sagaId(payment.getSagaId())
                     .orderId(payment.getOrderId())
                     .paymentId(payment.getPaymentID())
+                    .userId(payment.getUserId())
                     .paymentMethod(payment.getPaymentMethod())
                     .status(PaymentStatus.FAILED.name())
                     .build());
@@ -242,8 +248,14 @@ public class ZaloPayServiceImpl implements ZaloPayService {
 
             payment.setStatus(PaymentStatus.COMPLETED);
             paymentMessageProducer.sendPaymentCompletedEvent(
-                    PaymentCompletedEvent.builder().orderId(payment.getOrderId()).paymentId(payment.getPaymentID())
-                            .paymentMethod(payment.getPaymentMethod()).status(PaymentStatus.COMPLETED.name()).build());
+                    PaymentCompletedEvent.builder()
+                            .sagaId(payment.getSagaId())
+                            .orderId(payment.getOrderId())
+                            .paymentId(payment.getPaymentID())
+                            .userId(payment.getUserId())
+                            .paymentMethod(payment.getPaymentMethod())
+                            .status(PaymentStatus.COMPLETED.name())
+                            .build());
             paymentRepository.save(payment);
             return true;
 

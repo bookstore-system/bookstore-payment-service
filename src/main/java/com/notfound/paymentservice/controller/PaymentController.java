@@ -13,11 +13,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.notfound.paymentservice.model.dto.request.MoMoCallbackRequest;
-import com.notfound.paymentservice.model.dto.request.PaymentRequest;
 import com.notfound.paymentservice.model.dto.request.VNPayCallbackRequest;
 import com.notfound.paymentservice.model.dto.request.ZaloPayCallbackRequest;
 import com.notfound.paymentservice.model.dto.response.ApiResponse;
-import com.notfound.paymentservice.model.dto.response.CreatePaymentResponse;
 import com.notfound.paymentservice.model.dto.response.PaymentResponse;
 import com.notfound.paymentservice.model.dto.response.ZaloPayCallBackResponseDTO;
 import com.notfound.paymentservice.service.MoMoService;
@@ -25,7 +23,6 @@ import com.notfound.paymentservice.service.VNPayService;
 import com.notfound.paymentservice.service.ZaloPayService;
 import com.notfound.paymentservice.util.HMACUtil;
 
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,18 +44,6 @@ public class PaymentController {
     private String zaloPayKey2;
 
     // ================== VNPAY ==================
-
-    @PostMapping("/vnpay/create")
-    public ApiResponse<CreatePaymentResponse> createVNPayPayment(
-            @RequestBody PaymentRequest request,
-            HttpServletRequest httpServletRequest) {
-        CreatePaymentResponse vnPayPaymentUrl = vnPayService.createVNPayPaymentUrl(request, httpServletRequest);
-        return ApiResponse.<CreatePaymentResponse>builder()
-                .code(200)
-                .result(vnPayPaymentUrl)
-                .message("Successfully created VNPay payment URL")
-                .build();
-    }
 
     @GetMapping("/vnpay/callback")
     public void handleVNPayReturn(
@@ -85,17 +70,6 @@ public class PaymentController {
     }
 
     // ================== ZALOPAY ==================
-
-    @PostMapping("/zalopay/create")
-    public ApiResponse<CreatePaymentResponse> createZaloPayment(
-            @RequestBody PaymentRequest request) {
-        CreatePaymentResponse response = zaloPayService.createOrderTransaction(request);
-        return ApiResponse.<CreatePaymentResponse>builder()
-                .code(200)
-                .message("Payment order created successfully")
-                .result(response)
-                .build();
-    }
 
     @PostMapping("/zalopay/callback")
     public ZaloPayCallBackResponseDTO callbackZaloPay(@RequestBody ZaloPayCallbackRequest body) {
@@ -200,17 +174,6 @@ public class PaymentController {
     }
 
     // ================== MOMO ==================
-
-    @PostMapping("/momo/create")
-    public ApiResponse<CreatePaymentResponse> createMoMoPayment(
-            @RequestBody PaymentRequest request) {
-        CreatePaymentResponse response = moMoService.createMoMoPayment(request);
-        return ApiResponse.<CreatePaymentResponse>builder()
-                .code(200)
-                .message("Payment order created successfully")
-                .result(response)
-                .build();
-    }
 
     @PostMapping("/momo/callback")
     public ApiResponse<PaymentResponse> handleMoMoCallback(

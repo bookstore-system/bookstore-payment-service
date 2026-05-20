@@ -12,8 +12,10 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PaymentCompletedEvent {
+    private UUID sagaId;
     private UUID orderId;
     private UUID paymentId;
+    private String userId;
     private String paymentMethod;
     private String status;
 }
