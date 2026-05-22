@@ -9,6 +9,7 @@ import com.notfound.paymentservice.model.entity.Payment;
 import com.notfound.paymentservice.model.enums.PaymentStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
@@ -35,7 +36,8 @@ public class PaymentMessageProducer {
                             .orderId(event.getOrderId())
                             .userId(event.getUserId())
                             .paymentId(event.getPaymentId())
-                            .build());
+                            .build(),
+                    this::removeJavaTypeHeaders);
             return;
         }
         log.info("Skip legacy payment.completed publish because sagaId is null: orderId={}", event.getOrderId());
@@ -54,7 +56,8 @@ public class PaymentMessageProducer {
                             .orderId(event.getOrderId())
                             .userId(event.getUserId())
                             .reason("Payment failed")
-                            .build());
+                            .build(),
+                    this::removeJavaTypeHeaders);
             return;
         }
         log.info("Skip legacy payment.failed publish because sagaId is null: orderId={}", event.getOrderId());
@@ -74,7 +77,8 @@ public class PaymentMessageProducer {
                         .userId(payment.getUserId())
                         .paymentId(payment.getPaymentID())
                         .paymentUrl(paymentUrl)
-                        .build());
+                        .build(),
+                this::removeJavaTypeHeaders);
     }
 
     public void publishPaymentResult(Payment payment, UUID causationId) {
@@ -86,7 +90,8 @@ public class PaymentMessageProducer {
         if (payment.getStatus() == PaymentStatus.COMPLETED) {
             log.info("Publish saga payment.completed: sagaId={}, paymentId={}", payment.getSagaId(), payment.getPaymentID());
             rabbitTemplate.convertAndSend(RabbitMQConfig.EVENT_EXCHANGE, RabbitMQConfig.PAYMENT_COMPLETED_KEY,
-                    buildPaymentResultEvent(payment, RabbitMQConfig.PAYMENT_COMPLETED_KEY, causationId));
+                    buildPaymentResultEvent(payment, RabbitMQConfig.PAYMENT_COMPLETED_KEY, causationId),
+                    this::removeJavaTypeHeaders);
         } else if (payment.getStatus() == PaymentStatus.FAILED) {
             publishPaymentFailed(payment, causationId, "Payment failed");
         }
@@ -95,7 +100,8 @@ public class PaymentMessageProducer {
     public void publishPaymentRefunded(Payment payment, UUID causationId) {
         log.info("Publish saga payment.refunded: sagaId={}, paymentId={}", payment.getSagaId(), payment.getPaymentID());
         rabbitTemplate.convertAndSend(RabbitMQConfig.EVENT_EXCHANGE, RabbitMQConfig.PAYMENT_REFUNDED_KEY,
-                buildPaymentResultEvent(payment, RabbitMQConfig.PAYMENT_REFUNDED_KEY, causationId));
+                buildPaymentResultEvent(payment, RabbitMQConfig.PAYMENT_REFUNDED_KEY, causationId),
+                this::removeJavaTypeHeaders);
     }
 
     public void publishPaymentFailed(Payment payment, UUID causationId, String reason) {
@@ -112,7 +118,8 @@ public class PaymentMessageProducer {
                         .orderId(payment.getOrderId())
                         .userId(payment.getUserId())
                         .reason(reason)
-                        .build());
+                        .build(),
+                this::removeJavaTypeHeaders);
     }
 
     public void publishPaymentFailed(BaseSagaMessage command, String reason) {
@@ -129,7 +136,8 @@ public class PaymentMessageProducer {
                         .orderId(command.getOrderId())
                         .userId(command.getUserId())
                         .reason(reason)
-                        .build());
+                        .build(),
+                this::removeJavaTypeHeaders);
     }
 
     private PaymentCompletedSagaEvent buildPaymentResultEvent(Payment payment, String type, UUID causationId) {
@@ -144,5 +152,12 @@ public class PaymentMessageProducer {
                 .userId(payment.getUserId())
                 .paymentId(payment.getPaymentID())
                 .build();
+    }
+
+    private Message removeJavaTypeHeaders(Message message) {
+        message.getMessageProperties().getHeaders().remove("__TypeId__");
+        message.getMessageProperties().getHeaders().remove("__ContentTypeId__");
+        message.getMessageProperties().getHeaders().remove("__KeyTypeId__");
+        return message;
     }
 }
