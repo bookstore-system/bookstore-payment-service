@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payment-service-config
+data:
+  DB_HOST: "bookstore-db-do-user-36177370-0.h.db.ondigitalocean.com"
+  DB_PORT: "25060"
+  DB_NAME: "bookstore_payment"
+  RABBITMQ_HOST: "rabbitmq"
+  RABBITMQ_PORT: "5672"
+  
+  # VNPay non-sensitive variables
+  VNPAY_URL: "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
+  VNPAY_RETURN_URL: "http://localhost:8080/api/v1/payment/vnpay/return"
+  VNPAY_TMN_CODE: "VNPAY_TMN_CODE"
+  VNPAY_VERSION: "2.1.0"
+  VNPAY_COMMAND: "pay"
+  VNPAY_ORDER_TYPE: "other"
+
+  # ZaloPay non-sensitive variables
+  ZALOPAY_APP_ID: "ZALOPAY_APP_ID"
+  ZALOPAY_URL: "https://sb-openapi.zalopay.vn/v2/create"
+  ZALOPAY_RETURN_URL: "http://localhost:8080/api/v1/payment/zalopay/return"
+  ZALOPAY_REDIRECT_URL: "http://localhost:3000/checkout/result"
+  ZALOPAY_CALLBACK_URL: "http://localhost:8080/api/v1/payment/zalopay/callback"
+
+  # MoMo non-sensitive variables
+  MOMO_PARTNER_CODE: "MOMO_PARTNER_CODE"
+  MOMO_ENDPOINT: "https://test-payment.momo.vn/v2/gateway/api/create"
+  MOMO_RETURN_URL: "http://localhost:3000/checkout/result"
+  MOMO_IPN_URL: "http://localhost:8080/api/v1/payment/momo/callback"
+
+  # Frontend configuration
+  FRONTEND_URL: "http://localhost:3000"
