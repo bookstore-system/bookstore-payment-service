@@ -9,7 +9,6 @@ pipeline {
 
         K8S_DEPLOYMENT = 'payment-service-deployment'
         K8S_CONTAINER = 'payment-service'
-        VNPAY_RETURN_URL = 'https://api.nhasachcongdong.id.vn/api/v1/payment/vnpay/callback'
     }
 
     tools {
@@ -72,7 +71,6 @@ pipeline {
                 sed -i "s|image: .*${IMAGE_NAME}:.*|image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}|g" k8s/deployment.yaml
 
                 # ConfigMap is safe to keep in Git.
-                sed -i "s|VNPAY_RETURN_URL: .*|VNPAY_RETURN_URL: \"${VNPAY_RETURN_URL}\"|g" k8s/configmap.yaml
                 kubectl apply -f k8s/configmap.yaml
 
                 # App secret from Jenkins Credentials. Do not apply k8s/secret.yaml with real values.
