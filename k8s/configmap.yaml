@@ -13,7 +13,7 @@ data:
   # VNPay non-sensitive variables
   VNPAY_URL: "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
   VNPAY_RETURN_URL: "https://api.nhasachcongdong.id.vn/api/v1/payment/vnpay/callback"
-  VNPAY_TMN_CODE: "VNPAY_TMN_CODE"
+  VNPAY_TMN_CODE: "HUWA4L8W"
   VNPAY_VERSION: "2.1.0"
   VNPAY_COMMAND: "pay"
   VNPAY_ORDER_TYPE: "other"
