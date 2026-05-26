@@ -4,11 +4,11 @@ pipeline {
     environment {
         DOCKER_REGISTRY = 'truongdocker1'
         DOCKER_CREDENTIALS_ID = 'dockerhub-creds'
-        IMAGE_NAME = 'bookstore-payment-service'
+        IMAGE_NAME = 'bookstore-user-service'
         TAG = "${BUILD_NUMBER}"
 
-        K8S_DEPLOYMENT = 'payment-service-deployment'
-        K8S_CONTAINER = 'payment-service'
+        K8S_DEPLOYMENT = 'user-service-deployment'
+        K8S_CONTAINER = 'user-service'
     }
 
     tools {
@@ -58,11 +58,12 @@ pipeline {
             steps {
                 withCredentials([
                     usernamePassword(credentialsId: 'db-creds', usernameVariable: 'DB_USERNAME', passwordVariable: 'DB_PASSWORD'),
-                    string(credentialsId: 'vnpay-secret-key', variable: 'VNPAY_SECRET_KEY'),
-                    string(credentialsId: 'zalopay-key1', variable: 'ZALOPAY_KEY1'),
-                    string(credentialsId: 'zalopay-key2', variable: 'ZALOPAY_KEY2'),
-                    string(credentialsId: 'momo-secret-key', variable: 'MOMO_SECRET_KEY'),
-                    string(credentialsId: 'momo-access-key', variable: 'MOMO_ACCESS_KEY')
+                    file(credentialsId: 'jwt-private-pem', variable: 'JWT_PRIVATE_PEM'),
+                    file(credentialsId: 'jwt-public-pem', variable: 'JWT_PUBLIC_PEM'),
+                    string(credentialsId: 'cloudinary-cloud-name', variable: 'CLOUDINARY_CLOUD_NAME'),
+                    string(credentialsId: 'cloudinary-api-key', variable: 'CLOUDINARY_API_KEY'),
+                    string(credentialsId: 'cloudinary-api-secret', variable: 'CLOUDINARY_API_SECRET'),
+                    string(credentialsId: 'redis-password', variable: 'SPRING_DATA_REDIS_PASSWORD')
                 ]) {
                     sh '''
                 export KUBECONFIG=/var/jenkins_home/.kube/config
@@ -74,16 +75,20 @@ pipeline {
                 kubectl apply -f k8s/configmap.yaml
 
                 # App secret from Jenkins Credentials. Do not apply k8s/secret.yaml with real values.
-                kubectl create secret generic payment-service-secret \
+                kubectl create secret generic user-service-secret \
                   --from-literal=DB_USERNAME="$DB_USERNAME" \
                   --from-literal=DB_PASSWORD="$DB_PASSWORD" \
-                  --from-literal=RABBITMQ_USERNAME="guest" \
-                  --from-literal=RABBITMQ_PASSWORD="guest" \
-                  --from-literal=VNPAY_SECRET_KEY="$VNPAY_SECRET_KEY" \
-                  --from-literal=ZALOPAY_KEY1="$ZALOPAY_KEY1" \
-                  --from-literal=ZALOPAY_KEY2="$ZALOPAY_KEY2" \
-                  --from-literal=MOMO_SECRET_KEY="$MOMO_SECRET_KEY" \
-                  --from-literal=MOMO_ACCESS_KEY="$MOMO_ACCESS_KEY" \
+                  --from-literal=CLOUDINARY_ENABLED=true \
+                  --from-literal=CLOUDINARY_CLOUD_NAME="$CLOUDINARY_CLOUD_NAME" \
+                  --from-literal=CLOUDINARY_API_KEY="$CLOUDINARY_API_KEY" \
+                  --from-literal=CLOUDINARY_API_SECRET="$CLOUDINARY_API_SECRET" \
+                  --from-literal=SPRING_DATA_REDIS_PASSWORD="$SPRING_DATA_REDIS_PASSWORD" \
+                  --dry-run=client -o yaml | kubectl apply -f -
+
+                # JWT signing key pair. user-service needs private.pem + public.pem.
+                kubectl create secret generic jwt-keys \
+                  --from-file=private.pem="$JWT_PRIVATE_PEM" \
+                  --from-file=public.pem="$JWT_PUBLIC_PEM" \
                   --dry-run=client -o yaml | kubectl apply -f -
 
                 # Deploy app.

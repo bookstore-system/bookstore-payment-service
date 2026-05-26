@@ -1,3 +1,7 @@
 spring:
   application:
     name: bookstore-payment-service
+
+server:
+  port: 8085
+

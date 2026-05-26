@@ -4,17 +4,19 @@ services:
   payment-db:
     image: mysql:8.0
     container_name: payment-db
-    restart: unless-stopped
+    restart: always
     environment:
       MYSQL_DATABASE: bookstore_payment
       MYSQL_USER: bookstore
       MYSQL_PASSWORD: bookstore
       MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3310:3306"
     volumes:
       - payment_mysql_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-proot"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
       retries: 20
       start_period: 30s
@@ -31,12 +33,14 @@ services:
     volumes:
       - .:/build
       - ~/.m2:/root/.m2
-    command: mvn spring-boot:run -Dspring-boot.run.profiles=dev
-    env_file:
-      - .env
+    command: ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
     environment:
       SPRING_PROFILES_ACTIVE: dev
       SPRING_DATASOURCE_URL: jdbc:mysql://payment-db:3306/bookstore_payment?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: bookstore
+      SPRING_DATASOURCE_PASSWORD: bookstore
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
     networks:
       - bookstore-network
     depends_on:
@@ -45,7 +49,7 @@ services:
 
 networks:
   bookstore-network:
-    # external: true
+    external: true
 
 volumes:
   payment_mysql_data:
