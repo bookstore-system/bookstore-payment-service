@@ -68,6 +68,11 @@ spec:
             secretKeyRef:
               name: payment-service-secret
               key: RABBITMQ_PASSWORD
+        - name: RABBITMQ_VIRTUAL_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: payment-service-config
+              key: RABBITMQ_VIRTUAL_HOST
         
         # VNPay Integration
         - name: VNPAY_URL
