@@ -19,14 +19,14 @@ data:
   VNPAY_ORDER_TYPE: "other"
 
   # ZaloPay non-sensitive variables
-  ZALOPAY_APP_ID: "ZALOPAY_APP_ID"
+  ZALOPAY_APP_ID: "2553"
   ZALOPAY_URL: "https://sb-openapi.zalopay.vn/v2/create"
   ZALOPAY_RETURN_URL: "https://api.nhasachcongdong.id.vn/api/v1/payment/zalopay/return"
   ZALOPAY_REDIRECT_URL: "https://api.nhasachcongdong.id.vn/api/v1/payment/zalopay/return"
   ZALOPAY_CALLBACK_URL: "https://api.nhasachcongdong.id.vn/api/v1/payment/zalopay/callback"
 
   # MoMo non-sensitive variables
-  MOMO_PARTNER_CODE: "MOMO_PARTNER_CODE"
+  MOMO_PARTNER_CODE: "MOMO"
   MOMO_ENDPOINT: "https://test-payment.momo.vn/v2/gateway/api/create"
   MOMO_RETURN_URL: "https://api.nhasachcongdong.id.vn/api/v1/payment/momo/return"
   MOMO_IPN_URL: "https://api.nhasachcongdong.id.vn/api/v1/payment/momo/callback"
